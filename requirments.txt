@@ -1,0 +1,17 @@
+sklearn
+fastapi
+pandas
+pydantic
+tensorflow
+uvicorn
+h5py
+python-multipart
+starlette
+matplotlib
+numpy
+seaborn
+pickle
+shutil
+pathlib
+tempfile
+typing
