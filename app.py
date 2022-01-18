@@ -27,7 +27,7 @@ class CSIMatrix(BaseModel):
     csi_matrix: list
 
 def preProcess_data(data_array): #cleaning the data
-    data=data_array.reshape(1,300,234,1)
+    data=data_array.reshape(1,500,234,1)
     return data
 
 app = FastAPI()
@@ -83,11 +83,11 @@ def take_inp():
 
 @app.post('/predict') #prediction on data
 async def test(csiMatrix: CSIMatrix ): #input is from forms
-    print(csiMatrix.csi_matrix[0][0], )
+    print(csiMatrix.csi_matrix[0][0])
     data_array = np.array(csiMatrix.csi_matrix)
     print(data_array.shape)
     clean_text = my_pipeline(data_array) #cleaning and preprocessing of the texts
-    loaded_model = tf.keras.models.load_model('sentiment.h5') #load the saved model 
+    loaded_model = tf.keras.models.load_model('convLSTM111.h5') #load the saved model 
     predictions = loaded_model.predict(clean_text) #predict the text
     sentiment = int(np.argmax(predictions)) #calculate the index of max sentiment
     probability = max(predictions.tolist()[0]) #calulate the probability
