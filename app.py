@@ -3,7 +3,8 @@ from pydantic import BaseModel
 from starlette.responses import HTMLResponse 
 import re
 
-
+import paho.mqtt.client as paho
+from paho import mqtt
 
 from CSIKit.reader import get_reader
 from CSIKit.util import csitools
@@ -31,6 +32,45 @@ def preProcess_data(data_array): #cleaning the data
     return data
 
 app = FastAPI()
+
+# setting callbacks for different events to see if it works, print the message etc.
+def on_connect(client, userdata, flags, rc, properties=None):
+    print("CONNACK received with code %s." % rc)
+
+# with this callback you can see if your publish was successful
+def on_publish(client, userdata, mid, properties=None):
+    print("mid: " + str(mid))
+
+# print which topic was subscribed to
+def on_subscribe(client, userdata, mid, granted_qos, properties=None):
+    print("Subscribed: " + str(mid) + " " + str(granted_qos))
+
+# print message, useful for checking if it was successful
+def on_message(client, userdata, msg):
+    print(msg.topic + " " + str(msg.qos) + " " + str(msg.payload))
+
+client = paho.Client(client_id="", userdata=None, protocol=paho.MQTTv5)
+
+
+client.on_connect = on_connect
+
+client.tls_set(tls_version=mqtt.client.ssl.PROTOCOL_TLS)
+client.username_pw_set("fitiontest", "Fition@123")
+client.connect("3da5a785b21c44fc9f3ff0d47f7b11d4.s1.eu.hivemq.cloud", 8883)
+
+client.on_subscribe = on_subscribe
+client.on_message = on_message
+client.on_publish = on_publish
+
+
+
+
+
+
+
+
+
+
 
 def my_pipeline(data): #pipeline
   X = preProcess_data(data)
@@ -92,6 +132,10 @@ async def test(csiMatrix: CSIMatrix ): #input is from forms
     sentiment = int(np.argmax(predictions)) #calculate the index of max sentiment
     probability = max(predictions.tolist()[0]) #calulate the probability
     print("sentiment:", sentiment, ", probability: ", probability)
+    client.publish("testtopic", sentiment)
+    client.loop_start()
+    # client = connect_mqtt()
+    # client.publish(topic, sentiment)
     # if sentiment==0:
     #      t_sentiment = 'nomv' #set appropriate sentiment
     # elif sentiment==1:
@@ -103,3 +147,13 @@ async def test(csiMatrix: CSIMatrix ): #input is from forms
          "PREDICTED SENTIMENT": sentiment,
          "Probability": probability
     }
+
+
+@app.get('/mqtt')
+def testt():
+    
+    client.publish("testtopic", "hey msg")
+    client.loop_start()
+    return '''<h1>Hey</h1>'''
+
+    
