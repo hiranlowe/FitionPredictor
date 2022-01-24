@@ -123,15 +123,17 @@ def take_inp():
 
 @app.post('/predict') #prediction on data
 async def test(csiMatrix: CSIMatrix ): #input is from forms
+    values={0:"nm",1:"standup", 2:"sitdown",3:"getintobed",4:"walking"}
     print(csiMatrix.csi_matrix[0][0])
     data_array = np.array(csiMatrix.csi_matrix)
     print(data_array.shape)
     clean_text = my_pipeline(data_array) #cleaning and preprocessing of the texts
-    loaded_model = tf.keras.models.load_model('convLSTM111.h5') #load the saved model 
+    loaded_model = tf.keras.models.load_model('minul6.h5') #load the saved model 
     predictions = loaded_model.predict(clean_text) #predict the text
     sentiment = int(np.argmax(predictions)) #calculate the index of max sentiment
+    sentiment_text = values[sentiment]
     probability = max(predictions.tolist()[0]) #calulate the probability
-    print("sentiment:", sentiment, ", probability: ", probability)
+    print("sentiment:", sentiment, "-", sentiment_text, ", probability: ", probability)
     client.publish("testtopic", sentiment)
     client.loop_start()
     # client = connect_mqtt()
@@ -144,7 +146,7 @@ async def test(csiMatrix: CSIMatrix ): #input is from forms
     #      t_sentiment='bed'
     return { #return the dictionary for endpoint
         "csi_matrix": csiMatrix.csi_matrix[0][0],
-         "PREDICTED SENTIMENT": sentiment,
+         "PREDICTED SENTIMENT": sentiment_text,
          "Probability": probability
     }
 
