@@ -101,32 +101,12 @@ def take_inp():
     </form>'''
 
 
-
-# @app.post('/predict') #prediction on data
-# async def predict(uploaded_file: UploadFile = File(...)): #input is from forms
-#     path=save_upload_file_tmp(uploaded_file)
-#     clean_text = my_pipeline(path) #cleaning and preprocessing of the texts
-#     loaded_model = tf.keras.models.load_model('sentiment.h5') #load the saved model 
-#     predictions = loaded_model.predict(clean_text) #predict the text
-#     sentiment = int(np.argmax(predictions)) #calculate the index of max sentiment
-#     probability = max(predictions.tolist()[0]) #calulate the probability
-#     if sentiment==0:
-#          t_sentiment = 'nomv' #set appropriate sentiment
-#     elif sentiment==1:
-#          t_sentiment = 'std'
-#     elif sentiment==2:
-#          t_sentiment='bed'
-#     return { #return the dictionary for endpoint
-#          "PREDICTED SENTIMENT": t_sentiment,
-#          "Probability": probability
-    # }
-
 q = Queue(maxsize = 2)
 values={0:"nm",1:"standup", 2:"sitdown",3:"getintobed",4:"walking"}
 # sentiment = 0
 probability = 0
 @app.post('/predict') #prediction on data
-async def test(csiMatrix: CSIMatrix ): #input is from request body
+async def predict(csiMatrix: CSIMatrix ): #input is from request body
     print(csiMatrix.csi_matrix[0][0])
     csi_array = np.array(csiMatrix.csi_matrix)
     # Check if queue is full. If it's full then wait until not full
