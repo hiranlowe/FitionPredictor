@@ -64,7 +64,7 @@ client.on_message = on_message
 client.on_publish = on_publish
 
 
-
+loaded_model = tf.keras.models.load_model('minul6.h5')
 
 
 
@@ -137,7 +137,7 @@ async def test(csiMatrix: CSIMatrix ): #input is from request body
         data_array = np.array(list(q.queue))
         print(data_array.shape)
         clean_text = my_pipeline(data_array) #cleaning and preprocessing of the texts
-        loaded_model = tf.keras.models.load_model('minul6.h5') #load the saved model 
+        #load the saved model when app starts
         predictions = loaded_model.predict(clean_text) #predict the text
         probability = max(predictions.tolist()[0]) #calulate the probability
         # if(probability>0.95):
