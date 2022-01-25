@@ -16,6 +16,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
 import pickle
+from queue import Queue
 
 import shutil
 from pathlib import Path
@@ -120,22 +121,36 @@ def take_inp():
 #          "Probability": probability
     # }
 
-
+q = Queue(maxsize = 2)
+values={0:"nm",1:"standup", 2:"sitdown",3:"getintobed",4:"walking"}
+# sentiment = 0
+probability = 0
 @app.post('/predict') #prediction on data
-async def test(csiMatrix: CSIMatrix ): #input is from forms
-    values={0:"nm",1:"standup", 2:"sitdown",3:"getintobed",4:"walking"}
+async def test(csiMatrix: CSIMatrix ): #input is from request body
     print(csiMatrix.csi_matrix[0][0])
-    data_array = np.array(csiMatrix.csi_matrix)
-    print(data_array.shape)
-    clean_text = my_pipeline(data_array) #cleaning and preprocessing of the texts
-    loaded_model = tf.keras.models.load_model('minul6.h5') #load the saved model 
-    predictions = loaded_model.predict(clean_text) #predict the text
-    sentiment = int(np.argmax(predictions)) #calculate the index of max sentiment
-    sentiment_text = values[sentiment]
-    probability = max(predictions.tolist()[0]) #calulate the probability
-    print("sentiment:", sentiment, "-", sentiment_text, ", probability: ", probability)
-    client.publish("testtopic", sentiment)
-    client.loop_start()
+    csi_array = np.array(csiMatrix.csi_matrix)
+    # Check if queue is full. If it's full then wait until not full
+    while (q.full()):
+        continue
+    q.put(csi_array)
+    if(q.full()):
+        data_array = np.array(list(q.queue))
+        print(data_array.shape)
+        clean_text = my_pipeline(data_array) #cleaning and preprocessing of the texts
+        loaded_model = tf.keras.models.load_model('minul6.h5') #load the saved model 
+        predictions = loaded_model.predict(clean_text) #predict the text
+        probability = max(predictions.tolist()[0]) #calulate the probability
+        # if(probability>0.95):
+        sentiment = int(np.argmax(predictions)) #calculate the index of max sentiment
+        sentiment_text = values[sentiment]
+        print("sentiment:", sentiment, "-", sentiment_text, ", probability: ", probability)
+        client.publish("testtopic", sentiment)
+        client.loop_start()
+        q.get()
+    else:
+        print("Queue not full yet. Waiting for next csi array")
+        sentiment_text = "WAIT"
+        probability = 0
     # client = connect_mqtt()
     # client.publish(topic, sentiment)
     # if sentiment==0:
