@@ -23,7 +23,17 @@ from pathlib import Path
 from tempfile import NamedTemporaryFile
 from typing import Callable
 
-from fastapi import UploadFile
+from fastapi import Depends, UploadFile
+
+from datetime import datetime
+
+from sqlalchemy import create_engine
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import Session
+from database import SessionLocal, engine
+
+import models
 
 class CSIMatrix(BaseModel):
     csi_matrix: list
@@ -32,7 +42,18 @@ def preProcess_data(data_array): #cleaning the data
     data=data_array.reshape(1,500,234,1)
     return data
 
+models.Base.metadata.create_all(bind=engine)
+
+
 app = FastAPI()
+
+# Dependency
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
 # setting callbacks for different events to see if it works, print the message etc.
 def on_connect(client, userdata, flags, rc, properties=None):
@@ -64,14 +85,28 @@ client.on_message = on_message
 client.on_publish = on_publish
 
 
-loaded_model = tf.keras.models.load_model('minul6.h5')
+loaded_model = tf.keras.models.load_model('norm1000.h5')
 
 
 
 
+q = Queue(maxsize = 2)
+values={0:"nm",1:"standup", 2:"sitdown",3:"getintobed",4:"walking",5:"falling"}
+# sentiment = 0
+probability = 0
 
+db = get_db()
 
+def savePrediction(db, sentiment, sentiment_text, probability, current_time):
+    db_activity = models.Activity(sentiment=sentiment, sentiment_text=sentiment_text, probability=str(probability), current_time=current_time)
+    db.add(db_activity)
+    db.commit()
+    db.refresh(db_activity)
+    return db_activity
 
+def getActivities(db, skip: int = 0, limit: int = 100):
+    return db.query(models.Activity).offset(skip).limit(limit).all()
+    
 
 def my_pipeline(data): #pipeline
   X = preProcess_data(data)
@@ -101,10 +136,7 @@ def take_inp():
     </form>'''
 
 
-q = Queue(maxsize = 2)
-values={0:"nm",1:"standup", 2:"sitdown",3:"getintobed",4:"walking"}
-# sentiment = 0
-probability = 0
+
 @app.post('/predict') #prediction on data
 async def predict(csiMatrix: CSIMatrix ): #input is from request body
     print(csiMatrix.csi_matrix[0][0])
@@ -123,6 +155,9 @@ async def predict(csiMatrix: CSIMatrix ): #input is from request body
         # if(probability>0.95):
         sentiment = int(np.argmax(predictions)) #calculate the index of max sentiment
         sentiment_text = values[sentiment]
+        now = datetime.now()
+        current_time = now.strftime("%H:%M:%S")
+        savePrediction(sentiment, sentiment_text, probability, current_time)
         print("sentiment:", sentiment, "-", sentiment_text, ", probability: ", probability)
         client.publish("testtopic", sentiment)
         client.loop_start()
@@ -152,5 +187,16 @@ def testt():
     client.publish("testtopic", "hey msg")
     client.loop_start()
     return '''<h1>Hey</h1>'''
+
+
+@app.get('/history')
+def testt(db: Session = Depends(get_db)):
+    now = datetime.now()
+    current_time = now.strftime("%H:%M:%S")
+    savePrediction(db, "test", "test", 0.25, current_time)
+    activities = getActivities(db)
+    return activities
+
+
 
     
