@@ -34,7 +34,7 @@ from sqlalchemy.orm import Session
 from database import SessionLocal, engine
 
 import models
-
+os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 class CSIMatrix(BaseModel):
     csi_matrix: list
 
@@ -87,18 +87,18 @@ client.on_publish = on_publish
 
 loaded_model = tf.keras.models.load_model('norm1000.h5')
 
-
-
+prev_act = 0
+current_act = 0
 
 q = Queue(maxsize = 2)
-values={0:"nm",1:"standup", 2:"sitdown",3:"getintobed",4:"walking",5:"falling"}
+values={0:"nm",1:"sitdown", 2:"standup",3:"walking",4:"falling",5:"getintobed"}
 # sentiment = 0
 probability = 0
 
-db = get_db()
+# db = get_db()
 
 def savePrediction(db, sentiment, sentiment_text, probability, current_time):
-    db_activity = models.Activity(sentiment=sentiment, sentiment_text=sentiment_text, probability=str(probability), current_time=current_time)
+    db_activity = models.Activity(sentiment=sentiment, sentiment_text=sentiment_text, probability='{0:.2f}'.format(probability), current_time=current_time)
     db.add(db_activity)
     db.commit()
     db.refresh(db_activity)
@@ -138,7 +138,8 @@ def take_inp():
 
 
 @app.post('/predict') #prediction on data
-async def predict(csiMatrix: CSIMatrix ): #input is from request body
+async def predict(csiMatrix: CSIMatrix, db: Session = Depends(get_db)): #input is from request body
+    global prev_act
     print(csiMatrix.csi_matrix[0][0])
     csi_array = np.array(csiMatrix.csi_matrix)
     # Check if queue is full. If it's full then wait until not full
@@ -152,15 +153,19 @@ async def predict(csiMatrix: CSIMatrix ): #input is from request body
         #load the saved model when app starts
         predictions = loaded_model.predict(clean_text) #predict the text
         probability = max(predictions.tolist()[0]) #calulate the probability
-        # if(probability>0.95):
         sentiment = int(np.argmax(predictions)) #calculate the index of max sentiment
         sentiment_text = values[sentiment]
         now = datetime.now()
         current_time = now.strftime("%H:%M:%S")
-        savePrediction(sentiment, sentiment_text, probability, current_time)
         print("sentiment:", sentiment, "-", sentiment_text, ", probability: ", probability)
-        client.publish("testtopic", sentiment)
-        client.loop_start()
+        if(probability>0.99):
+            
+            current_act = sentiment
+            if prev_act != current_act:
+                savePrediction(db, sentiment, sentiment_text, probability, current_time)
+                client.publish("testtopic", str(sentiment)+" "+sentiment_text+"-"+'{0:.2f}'.format(probability)+" "+current_time)
+            prev_act = current_act
+            client.loop_start()
         q.get()
     else:
         print("Queue not full yet. Waiting for next csi array")
@@ -193,7 +198,7 @@ def testt():
 def testt(db: Session = Depends(get_db)):
     now = datetime.now()
     current_time = now.strftime("%H:%M:%S")
-    savePrediction(db, "test", "test", 0.25, current_time)
+    # savePrediction(db, "test", "test", 0.25, current_time)
     activities = getActivities(db)
     return activities
 
