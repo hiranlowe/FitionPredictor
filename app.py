@@ -85,7 +85,7 @@ client.on_message = on_message
 client.on_publish = on_publish
 
 
-loaded_model = tf.keras.models.load_model('norm1000.h5')
+loaded_model = tf.keras.models.load_model('colab_newdata_001.h5')
 
 
 
